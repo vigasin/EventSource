@@ -11,7 +11,8 @@
 #define ES_RECONNECT_TIMEOUT 1.0
 
 @interface EventSource () <NSURLConnectionDelegate, NSURLConnectionDataDelegate> {
-    NSURL *eventURL;
+    id <EventSourceDelegate> delegate;
+    NSURLRequest *eventURLRequest;
     NSURLConnection *eventSource;
     NSMutableDictionary *listeners;
     BOOL wasClosed;
@@ -23,16 +24,39 @@
 
 @implementation EventSource
 
-+ (id)eventSourceWithURL:(NSURL *)URL
++ (id)eventSourceWithURL:(NSURL *)URL andDelegate:(id <EventSourceDelegate>)delegate
 {
-    return [[EventSource alloc] initWithURL:URL];
+    return [[EventSource alloc] initWithURL:URL andDelegate:delegate];
 }
 
-- (id)initWithURL:(NSURL *)URL
++ (id)eventSourceWithURLRequest:(NSURLRequest *)request andDelegate:(id <EventSourceDelegate>)delegate
+{
+    return [[EventSource alloc] initWithURLRequest:request andDelegate:delegate];
+}
+
+- (id)initWithURL:(NSURL *)URL andDelegate:(id <EventSourceDelegate>)delegate_
+{
+    return [self initWithURLRequest:[NSURLRequest requestWithURL:URL] andDelegate:delegate_];
+}
+
+- (id)initWithURLRequest:(NSURLRequest *)request andDelegate:(id <EventSourceDelegate>)delegate_
 {
     if (self = [super init]) {
         listeners = [NSMutableDictionary dictionary];
-        eventURL = URL;
+        eventURLRequest = request;
+        delegate = delegate_;
+        
+        [self onOpen:^(Event *event) {
+            [delegate eventSourceDidOpen:self];
+        }];
+        
+        [self onMessage:^(Event *event) {
+            [delegate eventSource:self didReceiveMessage:event];
+        }];
+        
+        [self onError:^(Event *event) {
+            [delegate eventSource:self didFailWithError:event.error];
+        }];
         
         dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(ES_RECONNECT_TIMEOUT * NSEC_PER_SEC));
         dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
@@ -69,8 +93,7 @@
 - (void)open
 {
     wasClosed = NO;
-    NSURLRequest *request = [NSURLRequest requestWithURL:eventURL];
-    eventSource = [[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:YES];
+    eventSource = [[NSURLConnection alloc] initWithRequest:eventURLRequest delegate:self startImmediately:YES];
 }
 
 - (void)close

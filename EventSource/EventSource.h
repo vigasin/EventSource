@@ -39,18 +39,28 @@ typedef void (^EventSourceEventHandler)(Event *event);
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+#pragma mark - EventSourceDelegate
+
+@protocol EventSourceDelegate;
+
+#pragma mark - EventSource
+
 /// Connect to and receive Server-Sent Events (SSEs).
 @interface EventSource : NSObject
 
 /// Returns a new instance of EventSource with the specified URL.
 ///
 /// @param URL The URL of the EventSource.
-+ (id)eventSourceWithURL:(NSURL *)URL;
++ (id)eventSourceWithURL:(NSURL *)URL andDelegate:(id <EventSourceDelegate>)delegate;
+
++ (id)eventSourceWithURLRequest:(NSURLRequest *)request andDelegate:(id <EventSourceDelegate>)delegate;
 
 /// Creates a new instance of EventSource with the specified URL.
 ///
 /// @param URL The URL of the EventSource.
-- (id)initWithURL:(NSURL *)URL;
+- (id)initWithURL:(NSURL *)URL andDelegate:(id <EventSourceDelegate>)delegate;
+
+- (id)initWithURLRequest:(NSURLRequest *)request andDelegate:(id <EventSourceDelegate>)delegate;
 
 /// Registers an event handler for the Message event.
 ///
@@ -76,6 +86,17 @@ typedef void (^EventSourceEventHandler)(Event *event);
 /// Closes the connection to the EventSource.
 - (void)close;
 
+@end
+
+#pragma mark - EventSourceDelegate
+
+@protocol EventSourceDelegate <NSObject>
+
+- (void)eventSource:(EventSource *)eventSource didReceiveMessage:(Event *)event;
+
+@optional
+- (void)eventSourceDidOpen:(EventSource *)eventSource;
+- (void)eventSource:(EventSource *)eventSource didFailWithError:(NSError *)error;
 @end
 
 // ---------------------------------------------------------------------------------------------------------------------
